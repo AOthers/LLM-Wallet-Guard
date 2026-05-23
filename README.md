@@ -37,7 +37,7 @@ Windows 系统托盘应用，实时显示 DeepSeek API 的余额和 token 用量
 ### 方式一：下载 exe（无需 Python，推荐）
 
 1. 从 [Releases](https://github.com/AotherK/DeepSeekUI/releases) 下载 `DeepSeekUI.exe`
-2. 复制 `config.example.json` 为 `config.json`，填入 token（见下方获取方式）
+2. 复制 `config_example.json` ，填入 token（见下方获取方式）
 3. 两个文件放同一目录，双击 `DeepSeekUI.exe`
 
 ### 方式二：直接运行（需要 Python）

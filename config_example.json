@@ -1,0 +1,5 @@
+{
+    "authorization": "Bearer 在此填入从浏览器获取的 token",
+    "cookie": "在此填入浏览器 Cookie（可选）",
+    "refresh_seconds": 30
+}
