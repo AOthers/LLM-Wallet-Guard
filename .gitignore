@@ -1,0 +1,10 @@
+*.exe
+*.spec
+dist/
+build/
+__pycache__/
+*.pyc
+config.json
+.vscode/
+*.lnk
+test_api.py
