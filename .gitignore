@@ -1,0 +1,15 @@
+*.exe
+*.spec
+dist/
+!dist/
+!dist/*.exe
+!dist/DeepSeekUI.exe
+!dist/config.example.json
+build/
+__pycache__/
+*.pyc
+config.json
+.vscode/
+*.lnk
+test_api.py
+.deepseek/
