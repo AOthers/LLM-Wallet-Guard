@@ -171,3 +171,111 @@ def fetch_usage_detail(auth: str, cookie: str = "", month: int = None, year: int
                 result["output"] += tokens
 
     return result
+
+
+# ── 第三方中转站 ──────────────────────────────────────────
+
+PROXY_ACTIVE_SUBSCRIPTION_URL = "https://viptoken.top/api/v1/subscriptions/active"
+
+
+@dataclass
+class SubscriptionData:
+    plan_name: str = ""
+    status: str = ""
+    expires_at_display: str = ""
+    daily_usage_usd: float = 0.0
+    weekly_usage_usd: float = 0.0
+    monthly_usage_usd: float = 0.0
+    daily_limit_usd: float = 0.0
+    weekly_limit_usd: float = 0.0
+    monthly_limit_usd: float = 0.0
+    remaining_usd: float = 0.0
+    usage_ratio: Optional[float] = None
+    is_available: bool = True
+    error: Optional[str] = None
+
+
+def _proxy_proxies(proxy_url: str) -> Optional[dict]:
+    proxy_url = (proxy_url or "").strip()
+    if not proxy_url:
+        return None
+    return {"http": proxy_url, "https": proxy_url}
+
+
+def _proxy_headers(authorization: str) -> dict:
+    return {
+        "Accept": "application/json",
+        "Authorization": _bearer(authorization),
+        "User-Agent": "LLMWalletGuard/1.2",
+    }
+
+
+def _money(value) -> float:
+    return round(float(value or 0), 4)
+
+
+def _format_datetime(value: str) -> str:
+    if not value:
+        return ""
+    try:
+        from datetime import datetime
+        return datetime.fromisoformat(value).strftime("%Y-%m-%d %H:%M")
+    except ValueError:
+        return value
+
+
+def build_subscription_error(error: str) -> SubscriptionData:
+    return SubscriptionData(is_available=False, error=error)
+
+
+def parse_subscription_response(payload: dict) -> SubscriptionData:
+    if payload.get("code", 0) != 0:
+        return build_subscription_error(f"接口错误: {payload.get('message', '')}".strip())
+
+    subscriptions = payload.get("data", [])
+    active = next((item for item in subscriptions if item.get("status") == "active"), None)
+    if not active:
+        return build_subscription_error("未找到有效订阅")
+
+    group = active.get("group", {}) or {}
+    monthly_usage = _money(active.get("monthly_usage_usd"))
+    monthly_limit = _money(group.get("monthly_limit_usd"))
+    remaining = round(monthly_limit - monthly_usage, 4)
+    ratio = round(monthly_usage / monthly_limit, 3) if monthly_limit > 0 else None
+
+    return SubscriptionData(
+        plan_name=group.get("name", ""),
+        status=active.get("status", ""),
+        expires_at_display=_format_datetime(active.get("expires_at", "")),
+        daily_usage_usd=_money(active.get("daily_usage_usd")),
+        weekly_usage_usd=_money(active.get("weekly_usage_usd")),
+        monthly_usage_usd=monthly_usage,
+        daily_limit_usd=_money(group.get("daily_limit_usd")),
+        weekly_limit_usd=_money(group.get("weekly_limit_usd")),
+        monthly_limit_usd=monthly_limit,
+        remaining_usd=remaining,
+        usage_ratio=ratio,
+    )
+
+
+def fetch_proxy_subscription(authorization: str, proxy_url: str = "") -> SubscriptionData:
+    try:
+        resp = requests.get(
+            PROXY_ACTIVE_SUBSCRIPTION_URL,
+            headers=_proxy_headers(authorization),
+            params={"timezone": "Asia/Shanghai"},
+            timeout=20,
+            proxies=_proxy_proxies(proxy_url),
+        )
+    except requests.RequestException as e:
+        return build_subscription_error(f"网络错误: {e}")
+
+    if resp.status_code in (401, 403):
+        return build_subscription_error("Authorization 无效或已过期")
+
+    try:
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        return build_subscription_error(f"接口错误: {e}")
+
+    return parse_subscription_response(resp.json())

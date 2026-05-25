@@ -26,9 +26,9 @@ import json
 APP_INSTANCE_KEY = "llm-wallet-guard-single-instance"
 
 PANEL_W = 310
-PANEL_H = 285
-PANEL_H_BALANCE_ONLY = 132
-PANEL_H_CONFIG = 440
+PANEL_H = 270
+PANEL_H_BALANCE_ONLY = 118
+PANEL_H_PROXY = 190
 C_BG = "#1e1e2e"
 C_CARD = "#2a2a3c"
 C_TEXT = "#cdd6f4"
@@ -48,6 +48,10 @@ def fmt_tokens(n: int) -> str:
     return str(n)
 
 
+def fmt_usd(value: float) -> str:
+    return f"${value:,.2f}"
+
+
 class BalancePanel(QWidget):
     refresh_requested = pyqtSignal()
     settings_requested = pyqtSignal()
@@ -64,7 +68,7 @@ class BalancePanel(QWidget):
 
     def _build_ui(self):
         self.setWindowTitle("LLM Wallet Guard")
-        self.setFixedSize(PANEL_W, PANEL_H)
+        self.setFixedWidth(PANEL_W)
         self.setWindowFlags(
             Qt.WindowType.ToolTip
             | Qt.WindowType.FramelessWindowHint
@@ -76,8 +80,8 @@ class BalancePanel(QWidget):
         )
 
         self.root_layout = QVBoxLayout(self)
-        self.root_layout.setContentsMargins(14, 12, 14, 12)
-        self.root_layout.setSpacing(8)
+        self.root_layout.setContentsMargins(12, 6, 12, 6)
+        self.root_layout.setSpacing(4)
 
         self.title_bar = QWidget()
         self.title_bar.setCursor(Qt.CursorShape.SizeAllCursor)
@@ -122,6 +126,17 @@ class BalancePanel(QWidget):
         layout.setSpacing(8)
         layout.setContentsMargins(0, 0, 0, 0)
 
+        # ── 数据面板栈：按平台切换 ──
+        self.data_stack = QStackedWidget()
+        self.data_stack.setStyleSheet("QStackedWidget { background: transparent; }")
+        layout.addWidget(self.data_stack)
+
+        # ── DeepSeek 数据面板 ──
+        deepseek_panel = QWidget()
+        ds_layout = QVBoxLayout(deepseek_panel)
+        ds_layout.setContentsMargins(0, 0, 0, 0)
+        ds_layout.setSpacing(8)
+
         card = QFrame()
         card.setStyleSheet(f"QFrame#balanceCard {{ background-color: {C_CARD}; border-radius: 8px; }}")
         card.setObjectName("balanceCard")
@@ -141,7 +156,7 @@ class BalancePanel(QWidget):
         self.lbl_cost.setStyleSheet(f"font-size: 12px; color: {C_SUB}; background: transparent;")
         card_layout.addWidget(self.lbl_cost)
 
-        layout.addWidget(card)
+        ds_layout.addWidget(card)
 
         self.usage_card = QFrame()
         self.usage_card.setStyleSheet(f"QFrame#usageCard {{ background-color: {C_CARD}; border-radius: 8px; }}")
@@ -182,7 +197,56 @@ class BalancePanel(QWidget):
         ugrid.addWidget(hit_box, 1, 0)
         ugrid.addWidget(miss_box, 1, 1)
 
-        layout.addWidget(self.usage_card)
+        ds_layout.addWidget(self.usage_card)
+        self.data_stack.addWidget(deepseek_panel)
+
+        # ── 第三方中转站数据面板 ──
+        proxy_panel = QWidget()
+        vt_layout = QVBoxLayout(proxy_panel)
+        vt_layout.setContentsMargins(0, 0, 0, 0)
+        vt_layout.setSpacing(8)
+
+        self.proxy_card = QFrame()
+        self.proxy_card.setStyleSheet(f"QFrame#proxyCard {{ background-color: {C_CARD}; border-radius: 8px; }}")
+        self.proxy_card.setObjectName("proxyCard")
+        self.proxy_card.setFixedHeight(66)
+        vc_layout = QVBoxLayout(self.proxy_card)
+        vc_layout.setContentsMargins(12, 10, 12, 10)
+        vc_layout.setSpacing(4)
+
+        self.lbl_spent = QLabel("本月已用  $--")
+        self.lbl_spent.setStyleSheet(
+            f"font-size: 20px; font-weight: bold; color: {C_GREEN}; background: transparent;"
+        )
+        vc_layout.addWidget(self.lbl_spent)
+
+        self.lbl_plan = QLabel("订阅未加载")
+        self.lbl_plan.setStyleSheet(f"font-size: 12px; color: {C_SUB}; background: transparent;")
+        vc_layout.addWidget(self.lbl_plan)
+
+        vt_layout.addWidget(self.proxy_card)
+
+        self.proxy_limit_card = QFrame()
+        self.proxy_limit_card.setStyleSheet(
+            f"QFrame#proxyLimitCard {{ background-color: {C_CARD}; border-radius: 8px; }}"
+        )
+        self.proxy_limit_card.setObjectName("proxyLimitCard")
+        self.proxy_limit_card.setMinimumHeight(54)
+        vl_layout = QVBoxLayout(self.proxy_limit_card)
+        vl_layout.setContentsMargins(12, 9, 12, 9)
+        vl_layout.setSpacing(3)
+
+        self.lbl_remaining = QLabel("剩余  --")
+        self.lbl_remaining.setStyleSheet(
+            f"font-size: 15px; font-weight: bold; color: {C_TEXT}; background: transparent;"
+        )
+        self.lbl_usage_ratio = QLabel("")
+        self.lbl_usage_ratio.setStyleSheet(f"font-size: 11px; color: {C_SUB}; background: transparent;")
+        vl_layout.addWidget(self.lbl_remaining)
+        vl_layout.addWidget(self.lbl_usage_ratio)
+
+        vt_layout.addWidget(self.proxy_limit_card)
+        self.data_stack.addWidget(proxy_panel)
 
         self.data_spacer = QWidget()
         self.data_spacer.setFixedHeight(0)
@@ -219,11 +283,9 @@ class BalancePanel(QWidget):
     def _build_config_page(self):
         layout = QVBoxLayout(self.config_page)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(7)
+        layout.setSpacing(0)
 
         def add_field(label_text: str, widget):
-            if layout.count():
-                layout.addSpacing(3)
             label = QLabel(label_text)
             label.setStyleSheet(f"font-size: 11px; color: {C_SUB}; background: transparent;")
             layout.addWidget(label)
@@ -231,7 +293,7 @@ class BalancePanel(QWidget):
 
         input_style = (
             f"QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {{ background-color: {C_CARD}; border: 1px solid {C_BORDER}; "
-            f"border-radius: 6px; color: {C_TEXT}; padding: 7px 9px; font-size: 12px; }}"
+            f"border-radius: 6px; color: {C_TEXT}; padding: 4px 8px; font-size: 12px; }}"
             f"QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {{ border-color: {C_ACCENT}; }}"
             "QSpinBox::up-button, QSpinBox::down-button, "
             "QDoubleSpinBox::up-button, QDoubleSpinBox::down-button { width: 0px; height: 0px; border: none; }"
@@ -239,9 +301,10 @@ class BalancePanel(QWidget):
 
         self.input_provider = QComboBox()
         self.input_provider.addItem("DeepSeek", "deepseek")
+        self.input_provider.addItem("第三方中转站", "proxy")
         self.input_provider.addItem("MiMo（即将支持）", "mimo")
         self.input_provider.addItem("OpenAI（即将支持）", "openai")
-        self.input_provider.setFixedHeight(30)
+        self.input_provider.setFixedHeight(26)
         self.input_provider.setStyleSheet(input_style)
         self.input_provider.currentIndexChanged.connect(self._on_provider_changed)
         add_field("平台", self.input_provider)
@@ -249,29 +312,51 @@ class BalancePanel(QWidget):
         self.input_api_key = QLineEdit()
         self.input_api_key.setPlaceholderText("sk-...")
         self.input_api_key.setEchoMode(QLineEdit.EchoMode.Password)
-        self.input_api_key.setFixedHeight(30)
+        self.input_api_key.setFixedHeight(26)
         self.input_api_key.setStyleSheet(input_style)
-        add_field("API Key（推荐，至少填写这一项）", self.input_api_key)
+        self.lbl_api_key = QLabel("API Key（推荐，至少填写这一项）")
+        self.lbl_api_key.setStyleSheet(f"font-size: 11px; color: {C_SUB}; background: transparent;")
+        layout.addWidget(self.lbl_api_key)
+        layout.addWidget(self.input_api_key)
 
         self.input_authorization = QLineEdit()
         self.input_authorization.setPlaceholderText("Bearer ...（可选，用于完整用量）")
         self.input_authorization.setEchoMode(QLineEdit.EchoMode.Password)
-        self.input_authorization.setFixedHeight(30)
+        self.input_authorization.setFixedHeight(26)
         self.input_authorization.setStyleSheet(input_style)
-        add_field("网页 Authorization（可选）", self.input_authorization)
+        self.lbl_authorization = QLabel("网页 Authorization（可选）")
+        self.lbl_authorization.setStyleSheet(f"font-size: 11px; color: {C_SUB}; background: transparent;")
+        layout.addWidget(self.lbl_authorization)
+        layout.addWidget(self.input_authorization)
 
         self.input_cookie = QLineEdit()
         self.input_cookie.setPlaceholderText("Cookie（可选）")
         self.input_cookie.setEchoMode(QLineEdit.EchoMode.Password)
-        self.input_cookie.setFixedHeight(30)
+        self.input_cookie.setFixedHeight(26)
         self.input_cookie.setStyleSheet(input_style)
-        add_field("Cookie（可选）", self.input_cookie)
+        self.lbl_cookie = QLabel("Cookie（可选）")
+        self.lbl_cookie.setStyleSheet(f"font-size: 11px; color: {C_SUB}; background: transparent;")
+        layout.addWidget(self.lbl_cookie)
+        layout.addWidget(self.input_cookie)
+
+        # ── 第三方中转站字段（默认隐藏）──
+        self.input_proxy_auth = QLineEdit()
+        self.input_proxy_auth.setPlaceholderText("Bearer ...")
+        self.input_proxy_auth.setEchoMode(QLineEdit.EchoMode.Password)
+        self.input_proxy_auth.setFixedHeight(26)
+        self.input_proxy_auth.setStyleSheet(input_style)
+        self.input_proxy_auth.hide()
+        self.lbl_proxy_auth = QLabel("Authorization")
+        self.lbl_proxy_auth.setStyleSheet(f"font-size: 11px; color: {C_SUB}; background: transparent;")
+        self.lbl_proxy_auth.hide()
+        layout.addWidget(self.lbl_proxy_auth)
+        layout.addWidget(self.input_proxy_auth)
 
         self.input_refresh = QSpinBox()
         self.input_refresh.setRange(10, 3600)
         self.input_refresh.setValue(30)
         self.input_refresh.setSuffix(" 秒")
-        self.input_refresh.setFixedHeight(30)
+        self.input_refresh.setFixedHeight(26)
         self.input_refresh.setStyleSheet(input_style)
         add_field("刷新间隔", self.input_refresh)
 
@@ -281,20 +366,21 @@ class BalancePanel(QWidget):
         self.input_threshold.setSingleStep(1)
         self.input_threshold.setValue(10)
         self.input_threshold.setPrefix("¥ ")
-        self.input_threshold.setFixedHeight(30)
+        self.input_threshold.setFixedHeight(26)
         self.input_threshold.setStyleSheet(input_style)
-        add_field("余额提醒阈值", self.input_threshold)
-
-        layout.addSpacing(0)
+        self.lbl_threshold = QLabel("余额提醒阈值")
+        self.lbl_threshold.setStyleSheet(f"font-size: 11px; color: {C_SUB}; background: transparent;")
+        layout.addWidget(self.lbl_threshold)
+        layout.addWidget(self.input_threshold)
 
         self.lbl_config_status = QLabel("")
         self.lbl_config_status.setStyleSheet(f"font-size: 11px; color: {C_SUB}; background: transparent;")
-        self.lbl_config_status.setFixedHeight(18)
+        self.lbl_config_status.setFixedHeight(14)
         layout.addWidget(self.lbl_config_status)
 
         actions = QHBoxLayout()
-        actions.setContentsMargins(0, 2, 0, 4)
-        actions.setSpacing(10)
+        actions.setContentsMargins(0, 0, 0, 0)
+        actions.setSpacing(8)
         actions.addStretch()
         self.btn_cancel = QPushButton("返回")
         btn_save = QPushButton("保存")
@@ -316,7 +402,7 @@ class BalancePanel(QWidget):
         actions.addWidget(self.btn_cancel)
         actions.addWidget(btn_save)
         layout.addLayout(actions)
-        layout.addSpacing(10)
+        layout.addSpacing(4)
 
     def update_data(self, data):
         if not data.is_available:
@@ -358,6 +444,36 @@ class BalancePanel(QWidget):
             self.lbl_cache_hit.setText("--")
             self.lbl_cache_miss.setText("--")
 
+    def update_proxy_data(self, data):
+        """更新第三方中转站数据面板。data 为 SubscriptionData。"""
+        color = C_GREEN
+        if not data.is_available:
+            color = C_RED
+        elif data.usage_ratio is not None:
+            if data.usage_ratio >= 1:
+                color = C_RED
+            elif data.usage_ratio >= 0.8:
+                color = C_ORANGE
+        self.lbl_spent.setStyleSheet(
+            f"font-size: 20px; font-weight: bold; color: {color}; background: transparent;"
+        )
+        self.lbl_spent.setText(f"本月已用  {fmt_usd(data.monthly_usage_usd)}")
+        self.lbl_plan.setText(data.plan_name or "订阅未加载")
+        self.lbl_remaining.setStyleSheet(
+            f"font-size: 15px; font-weight: bold; color: {color}; background: transparent;"
+        )
+        self.lbl_remaining.setText(f"剩余  {fmt_usd(data.remaining_usd)}")
+        if data.usage_ratio is None:
+            self.lbl_usage_ratio.setText(f"月额度 {fmt_usd(data.monthly_limit_usd)}")
+        else:
+            expire = f" · 到期 {data.expires_at_display}" if data.expires_at_display else ""
+            self.lbl_usage_ratio.setText(
+                f"月额度 {fmt_usd(data.monthly_limit_usd)} · 已用 {data.usage_ratio * 100:.1f}%{expire}"
+            )
+        if not data.is_available:
+            self.lbl_status.setText(f"⚠ {data.error or '获取失败'}")
+            self.lbl_status.setStyleSheet(f"font-size: 11px; color: {C_RED}; background: transparent;")
+
     def set_config_values(
         self,
         provider: str,
@@ -366,12 +482,14 @@ class BalancePanel(QWidget):
         cookie: str,
         refresh_seconds: int,
         low_balance_threshold: float,
+        proxy_authorization: str = "",
     ):
         index = self.input_provider.findData(provider or "deepseek")
         self.input_provider.setCurrentIndex(max(index, 0))
         self.input_api_key.setText(api_key)
         self.input_authorization.setText(authorization)
         self.input_cookie.setText(cookie)
+        self.input_proxy_auth.setText(proxy_authorization)
         self.input_refresh.setValue(max(10, int(refresh_seconds or 30)))
         self.input_threshold.setValue(max(0, float(low_balance_threshold or 0)))
 
@@ -381,6 +499,7 @@ class BalancePanel(QWidget):
             "api_key": self.input_api_key.text().strip(),
             "authorization": self.input_authorization.text().strip(),
             "cookie": self.input_cookie.text().strip(),
+            "proxy_authorization": self.input_proxy_auth.text().strip(),
             "refresh_seconds": self.input_refresh.value(),
             "low_balance_threshold": self.input_threshold.value(),
         }
@@ -388,7 +507,7 @@ class BalancePanel(QWidget):
     def show_config_page(self):
         self.title.setText("LLM Wallet Guard 配置")
         self.stack.setCurrentWidget(self.config_page)
-        self._set_fixed_height_keep_bottom(PANEL_H_CONFIG)
+        self._on_provider_changed()
         self.lbl_config_status.clear()
         self.btn_cancel.setVisible(not self._config_required)
 
@@ -397,21 +516,34 @@ class BalancePanel(QWidget):
             return
         self.title.setText("LLM Wallet Guard")
         self.stack.setCurrentWidget(self.data_page)
-        if self.usage_card.isVisible():
-            self._set_fixed_height_keep_bottom(PANEL_H)
+        provider = self.input_provider.currentData()
+        if provider == "proxy":
+            self.data_stack.setCurrentIndex(1)
+            self._set_fixed_height_keep_bottom(PANEL_H_PROXY)
         else:
-            self._set_fixed_height_keep_bottom(PANEL_H_BALANCE_ONLY)
+            self.data_stack.setCurrentIndex(0)
+            if self.usage_card.isVisible():
+                self._set_fixed_height_keep_bottom(PANEL_H)
+            else:
+                self._set_fixed_height_keep_bottom(PANEL_H_BALANCE_ONLY)
 
     def _save_config_clicked(self):
         cfg = self.get_config_values()
-        if cfg["provider"] != "deepseek":
-            self.lbl_config_status.setText("当前版本仅支持 DeepSeek，MiMo / OpenAI 将在 v1.3 接入")
+        provider = cfg["provider"]
+        if provider not in ("deepseek", "proxy"):
+            self.lbl_config_status.setText("该平台将在 v1.3 支持")
             self.lbl_config_status.setStyleSheet(f"font-size: 11px; color: {C_ORANGE}; background: transparent;")
             return
-        if not cfg["api_key"] and not cfg["authorization"]:
-            self.lbl_config_status.setText("请至少填写 API Key 或网页 Authorization")
-            self.lbl_config_status.setStyleSheet(f"font-size: 11px; color: {C_RED}; background: transparent;")
-            return
+        if provider == "deepseek":
+            if not cfg["api_key"] and not cfg["authorization"]:
+                self.lbl_config_status.setText("请至少填写 API Key 或网页 Authorization")
+                self.lbl_config_status.setStyleSheet(f"font-size: 11px; color: {C_RED}; background: transparent;")
+                return
+        elif provider == "proxy":
+            if not cfg.get("proxy_authorization", ""):
+                self.lbl_config_status.setText("请填写 Authorization")
+                self.lbl_config_status.setStyleSheet(f"font-size: 11px; color: {C_RED}; background: transparent;")
+                return
         self.config_saved.emit(cfg)
 
     def set_config_required(self, required: bool):
@@ -419,11 +551,38 @@ class BalancePanel(QWidget):
 
     def _on_provider_changed(self):
         provider = self.input_provider.currentData()
-        if provider != "deepseek":
+        is_deepseek = (provider == "deepseek")
+        is_proxy = (provider == "proxy")
+        is_unsupported = not is_deepseek and not is_proxy
+
+        # DeepSeek 字段
+        self.lbl_api_key.setVisible(is_deepseek)
+        self.input_api_key.setVisible(is_deepseek)
+        self.lbl_authorization.setVisible(is_deepseek)
+        self.input_authorization.setVisible(is_deepseek)
+        self.lbl_cookie.setVisible(is_deepseek)
+        self.input_cookie.setVisible(is_deepseek)
+        self.lbl_threshold.setVisible(is_deepseek)
+        self.input_threshold.setVisible(is_deepseek)
+        # 第三方中转站字段
+        self.lbl_proxy_auth.setVisible(is_proxy)
+        self.input_proxy_auth.setVisible(is_proxy)
+
+        if self.stack.currentWidget() == self.config_page:
+            self._set_fixed_height_keep_bottom(self._config_height_for_provider(provider))
+
+        if is_unsupported:
             self.lbl_config_status.setText("该平台将在 v1.3 支持")
             self.lbl_config_status.setStyleSheet(f"font-size: 11px; color: {C_ORANGE}; background: transparent;")
         else:
             self.lbl_config_status.clear()
+
+    def _config_height_for_provider(self, provider: str) -> int:
+        if provider == "proxy":
+            return 210
+        if provider == "deepseek":
+            return 340
+        return 260
 
     def update_status(self, text: str, is_error: bool = False):
         self._status_clear_timer.stop()
@@ -503,6 +662,7 @@ class TrayApp:
         cookie: str = "",
         refresh_seconds: int = 30,
         low_balance_threshold: float = 10,
+        proxy_authorization: str = "",
     ):
         self.config_path = config_path
         self.provider = provider
@@ -512,6 +672,7 @@ class TrayApp:
         self.refresh_seconds = max(refresh_seconds, 10)
         self.refresh_ms = self.refresh_seconds * 1000
         self.low_balance_threshold = max(float(low_balance_threshold), 0)
+        self.proxy_authorization = proxy_authorization
         self._token_expired_notified = False
         self._low_balance_notified = False
 
@@ -537,21 +698,24 @@ class TrayApp:
             cookie=self.cookie,
             refresh_seconds=self.refresh_seconds,
             low_balance_threshold=self.low_balance_threshold,
+            proxy_authorization=self.proxy_authorization,
         )
         self.panel.refresh_requested.connect(self._do_refresh)
         self.panel.settings_requested.connect(self._show_config)
         self.panel.config_saved.connect(self._save_config)
+        self.panel.show_data_page()  # 确保 data_stack 索引与 provider 匹配
 
         self.timer = QTimer()
         self.timer.timeout.connect(self._do_refresh)
         self.timer.start(self.refresh_ms)
 
         self.tray.show()
-        if not self.api_key and not self.authorization:
+        has_creds = bool(self.api_key or self.authorization or self.proxy_authorization)
+        if not has_creds:
             self.panel.set_config_required(True)
             self.panel.show_config_page()
         QTimer.singleShot(300, self._show_panel)
-        if self.api_key or self.authorization:
+        if has_creds:
             QTimer.singleShot(500, self._do_refresh)
 
     def _build_menu(self):
@@ -584,18 +748,20 @@ class TrayApp:
             cookie=self.cookie,
             refresh_seconds=self.refresh_seconds,
             low_balance_threshold=self.low_balance_threshold,
+            proxy_authorization=self.proxy_authorization,
         )
         self.panel.show_config_page()
         self._show_panel()
 
     def _save_config(self, cfg: dict):
         self.provider = cfg["provider"]
-        self.api_key = cfg["api_key"]
-        self.authorization = cfg["authorization"]
-        self.cookie = cfg["cookie"]
+        self.api_key = cfg.get("api_key", "")
+        self.authorization = cfg.get("authorization", "")
+        self.cookie = cfg.get("cookie", "")
+        self.proxy_authorization = cfg.get("proxy_authorization", "")
         self.refresh_seconds = max(int(cfg["refresh_seconds"]), 10)
         self.refresh_ms = self.refresh_seconds * 1000
-        self.low_balance_threshold = max(float(cfg["low_balance_threshold"]), 0)
+        self.low_balance_threshold = max(float(cfg.get("low_balance_threshold", 10)), 0)
         self._low_balance_notified = False
 
         with open(self.config_path, "w", encoding="utf-8") as f:
@@ -605,6 +771,7 @@ class TrayApp:
                     "api_key": self.api_key,
                     "authorization": self.authorization,
                     "cookie": self.cookie,
+                    "proxy_authorization": self.proxy_authorization,
                     "refresh_seconds": self.refresh_seconds,
                     "low_balance_threshold": self.low_balance_threshold,
                 },
@@ -696,12 +863,20 @@ class TrayApp:
         self._show_panel()
 
     def _do_refresh(self):
-        from api_client import fetch_api_balance, fetch_platform_balance, fetch_usage_detail
+        from api_client import (
+            fetch_api_balance,
+            fetch_platform_balance,
+            fetch_usage_detail,
+            fetch_proxy_subscription,
+        )
 
         self.panel.update_status("刷新中...")
         try:
+            if self.provider == "proxy":
+                self._do_refresh_proxy()
+                return
             if self.provider != "deepseek":
-                raise RuntimeError("当前版本仅支持 DeepSeek，其他平台将在后续版本支持")
+                raise RuntimeError("当前版本仅支持 DeepSeek 和第三方中转站，其他平台将在后续版本支持")
 
             if self.api_key:
                 data = fetch_api_balance(self.api_key)
@@ -754,6 +929,39 @@ class TrayApp:
                     )
         except Exception as e:
             self.panel.update_data(type("d", (), {"is_available": False, "error": str(e)})())
+            self.panel.update_status(f"网络错误: {e}", is_error=True)
+            self.tray.setIcon(self._make_icon(C_RED))
+
+    def _do_refresh_proxy(self):
+        """第三方中转站刷新逻辑。"""
+        from api_client import fetch_proxy_subscription
+
+        try:
+            data = fetch_proxy_subscription(self.proxy_authorization)
+            self.panel.update_proxy_data(data)
+            if data.is_available:
+                self._token_expired_notified = False
+                self.panel.update_status("已刷新")
+                is_over_limit = data.usage_ratio is not None and data.usage_ratio >= 1
+                self.tray.setIcon(self._make_icon(C_RED if is_over_limit else C_GREEN))
+                self.tray.setToolTip(
+                    f"LLM Wallet Guard\n第三方中转站\n"
+                    f"本月已用: {fmt_usd(data.monthly_usage_usd)}\n"
+                    f"剩余: {fmt_usd(data.remaining_usd)}"
+                )
+            else:
+                self.tray.setIcon(self._make_icon(C_RED))
+                if ("无效" in (data.error or "") or "过期" in (data.error or "")) and not self._token_expired_notified:
+                    self._token_expired_notified = True
+                    QMessageBox.warning(
+                        None,
+                        "凭据不可用",
+                        "第三方中转站凭据不可用，请检查 config.json 中的 proxy_authorization。",
+                    )
+        except Exception as e:
+            from api_client import build_subscription_error
+
+            self.panel.update_proxy_data(build_subscription_error(f"网络错误: {e}"))
             self.panel.update_status(f"网络错误: {e}", is_error=True)
             self.tray.setIcon(self._make_icon(C_RED))
 

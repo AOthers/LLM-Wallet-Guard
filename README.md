@@ -2,15 +2,16 @@
 
 LLM Wallet Guard is a lightweight Windows tray app for monitoring LLM API balances and usage costs.
 
-当前 v1.2 以 DeepSeek 为首个可用平台，支持 API Key 查询余额、低余额提醒、软件内配置、托盘常驻和可选网页用量拆分。MiMo / OpenAI 已预留平台入口，会在后续版本接入。
+v1.3 支持 **DeepSeek** 和 **第三方中转站** 两个平台，可一键切换。MiMo / OpenAI 已预留入口，后续接入。
 
 ## 功能
 
 - 首次启动可直接在软件内填写配置
-- 使用 DeepSeek API Key 查询账户余额
-- 余额低于阈值时弹窗提醒，托盘图标变红
-- 仅有 API Key 时显示余额
-- 同时配置网页 Authorization 时显示本月消费和 token 用量拆分
+- **多平台切换**：DeepSeek（余额 + 用量拆分）与第三方中转站（订阅额度监控）
+- DeepSeek：API Key 查询余额，低于阈值弹窗 + 托盘变红
+- DeepSeek：可选网页 Authorization 查看本月消费和 token 用量拆分
+- 第三方中转站：查看订阅月度已用 / 剩余额度、使用率和到期时间
+- 配置页按平台动态切换字段，无需重启
 - 默认每 30 秒自动刷新
 - 支持窗口拖动、开机自启和原创托盘图标
 
@@ -32,25 +33,39 @@ python main.py
 
 ## 配置示例
 
+### DeepSeek
+
 ```json
 {
     "provider": "deepseek",
     "api_key": "sk-...",
     "authorization": "",
     "cookie": "",
+    "proxy_authorization": "",
     "refresh_seconds": 30,
     "low_balance_threshold": 10
 }
 ```
 
+### 第三方中转站
+
+```json
+{
+    "provider": "proxy",
+    "proxy_authorization": "Bearer ...",
+    "refresh_seconds": 30
+}
+```
+
 字段说明：
 
-- `provider`：当前可用值为 `deepseek`
-- `api_key`：DeepSeek API Key，用于官方余额查询
-- `authorization`：网页端 Authorization，可选，用于完整用量
-- `cookie`：网页 Cookie，可选
+- `provider`：平台选择，`deepseek` / `proxy` / `mimo` / `openai`
+- `api_key`：DeepSeek API Key（仅 DeepSeek 使用）
+- `authorization`：DeepSeek 网页端 Authorization（可选）
+- `cookie`：DeepSeek 网页 Cookie（可选）
+- `proxy_authorization`：第三方中转站 Authorization（仅第三方中转站使用）
 - `refresh_seconds`：自动刷新间隔，最低 10 秒
-- `low_balance_threshold`：低余额提醒阈值，单位元
+- `low_balance_threshold`：DeepSeek 低余额提醒阈值，单位元
 
 ## 获取网页 Authorization 和 Cookie
 

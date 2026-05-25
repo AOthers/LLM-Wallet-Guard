@@ -21,16 +21,15 @@ LLM Wallet Guard 是一个面向个人开发者的 LLM API 余额与成本监控
 - 同时填写网页 Authorization 时显示完整用量
 - 更新 README 为参赛介绍
 
-### v1.3：多平台真实支持
+### v1.3：多平台支持 ✅
 
-目标：抽象多平台 provider，让项目从“包装”变成真正的多平台工具。
-
-- 新增 `providers/` 目录
-- 抽象统一返回结构：provider、balance、currency、monthly_cost、usage_available、error
-- 拆分 DeepSeek provider
-- 增加 MiMo provider
-- 调研 OpenAI 余额/账单接口，确认权限和可用性后再接入
-- 配置页按 provider 显示不同字段
+- ✅ 新增"第三方中转站"平台选项（provider: proxy）
+- ✅ 配置页按平台动态显示/隐藏字段
+- ✅ 数据页按平台切换卡片（DeepSeek 余额 + 用量拆分 / 中转站订阅额度）
+- ✅ 第三方中转站查看月度已用/剩余额度、使用率、到期时间
+- ✅ \`proxy_authorization\` 配置字段
+- ✅ 页面紧凑化（输入框高度 26px、缩小边距间距）
+- MiMo / OpenAI 入口保留，后续接入
 
 ### v1.4：趋势图与报告
 

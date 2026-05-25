@@ -33,6 +33,7 @@ def load_config(config_path: Path) -> dict:
     api_key = cfg.get("api_key", "").strip()
     authorization = cfg.get("authorization", "").strip()
     cookie = cfg.get("cookie", "").strip()
+    proxy_authorization = cfg.get("proxy_authorization", "").strip()
     refresh = int(cfg.get("refresh_seconds", 30) or 30)
     provider = cfg.get("provider", "deepseek").strip().lower() or "deepseek"
     threshold = float(cfg.get("low_balance_threshold", 10) or 10)
@@ -42,6 +43,7 @@ def load_config(config_path: Path) -> dict:
         "api_key": "" if is_placeholder(api_key) else api_key,
         "authorization": "" if is_placeholder(authorization) else authorization,
         "cookie": "" if is_placeholder(cookie) else cookie,
+        "proxy_authorization": "" if is_placeholder(proxy_authorization) else proxy_authorization,
         "refresh_seconds": max(refresh, 10),
         "low_balance_threshold": max(threshold, 0),
     }
@@ -67,6 +69,7 @@ def main():
         cookie=cfg["cookie"],
         refresh_seconds=cfg["refresh_seconds"],
         low_balance_threshold=cfg["low_balance_threshold"],
+        proxy_authorization=cfg["proxy_authorization"],
     )
     app.run()
 
